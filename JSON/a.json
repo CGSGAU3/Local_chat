@@ -1,0 +1,33 @@
+{
+    "library": {
+        "name": "City Library",
+        "books": [
+            {
+                "title": "1984",
+                "author": "George Orwell",
+                "published": 1949,
+                "genres": ["Dystopian", "Political Fiction"],
+                "available": true
+            },
+            {
+                "title": "To Kill a Mockingbird",
+                "author": "Harper Lee",
+                "published": 1960,
+                "genres": ["Southern Gothic", "Coming-of-Age"],
+                "available": false
+            }
+        ],
+        "members": [
+            {
+                "name": "Alice Johnson",
+                "membershipDate": "2020-01-15",
+                "isActive": true
+            },
+            {
+                "name": "Bob Brown",
+                "membershipDate": "2019-05-22",
+                "isActive": false
+            }
+        ]
+    }
+}

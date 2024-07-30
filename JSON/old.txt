@@ -1,0 +1,384 @@
+#pragma region GLB & JSON worker
+#define SkipSpaces(File, x) \
+  do                        \
+    File.read(&x, 1);       \
+  while (isspace((unsigned char)x) || x == 0)
+
+#define ReadWhileNot(File, x, ch, Action) \
+  do                                      \
+  {                                       \
+    File.read(&x, 1);                     \
+    Action;                               \
+  }                                       \
+  while (x != ch)
+
+
+class json
+{
+public:
+  struct json_array;
+  struct object
+  {
+    std::vector<std::pair<std::string, std::string>> CommonPairs;
+    std::vector<std::pair<std::string, object>> ObjectPairs;
+    std::vector<std::pair<std::string, json_array>> ArrayPairs;
+
+    const void * operator []( const std::string &Find ) const
+    {
+      for (auto &Com : CommonPairs)
+        if (Com.first == Find)
+          return &Com.second;
+      for (auto &Arr : ArrayPairs)
+        if (Arr.first == Find)
+          return &Arr.second;
+      for (auto &Obj : ObjectPairs)
+        if (Obj.first == Find)
+          return &Obj.second;
+      return nullptr;
+    }
+
+    bool Exists( const std::string &Find ) const
+    {
+      auto M1 = GetObjectPairs();
+      auto M2 = GetArrayPairs();
+      auto M3 = GetCommonPairs();
+
+      if (M1.find(Find) != M1.end() || 
+          M2.find(Find) != M2.end() ||
+          M3.find(Find) != M3.end())
+        return true;
+      return false;
+    }
+
+    void Parse( std::ifstream &F, bool IsRec = false )
+    {
+      char ch;
+      std::string Key;
+
+      F.read(&ch, 1);
+      if (ch == '}')
+        return;
+      if (!IsRec)
+        if (ch != '{')
+          throw "Invalid JSON!";
+      while (true)
+      {
+        Key = "";
+        if (ch != '"')
+          SkipSpaces(F, ch);
+        if (ch == '"')
+        {
+          ReadWhileNot(F, ch, '"', if (ch != '"') Key += ch);
+          SkipSpaces(F, ch);
+          if (ch != ':')
+            throw "Invalid JSON!";
+          SkipSpaces(F, ch);
+          std::string Value;
+          object RecObj;
+          json_array Arr;
+          switch (ch)
+          {
+          case '"':
+            ReadWhileNot(F, ch, '"', if (ch != '"') Value += ch);
+            CommonPairs.push_back({Key, Value});
+            Key = Value = "";
+            SkipSpaces(F, ch);
+            if (ch == ',')
+              continue;
+            else 
+              return;
+            break;
+          case '{':
+            RecObj.Parse(F, true);
+            ObjectPairs.push_back({Key, RecObj});
+            SkipSpaces(F, ch);
+            if (ch == ',')
+              continue;
+            else 
+              return;
+            break;
+          case '[':
+            Arr.Parse(F);
+            ArrayPairs.push_back({Key, Arr});
+            Key = "";
+            SkipSpaces(F, ch);
+            if (ch == ',')
+              continue;
+            else 
+              return;
+          default:
+            Value += ch;
+            do
+            {
+              F.read(&ch, 1);
+              if (ch != '}' && ch != ',' && !isspace((unsigned char)ch))
+                Value += ch;
+            } while (ch != ',' && ch != '}' && !isspace((unsigned char)ch));
+            CommonPairs.push_back({Key, Value});
+            Key = Value = "";
+            if (ch == '}')
+              return;
+            continue;
+          }
+        }
+        else
+          return;
+      }
+    }
+
+    void Save( std::ofstream &F, int Prec = 0 )
+    {
+      int AllObjectSize = CommonPairs.size() + ObjectPairs.size() + ArrayPairs.size();
+      int CurInd = 0;
+
+      for (int i = 0; i < Prec; i++)
+        F.write(" ", 1);
+      F.write("{", 1);
+      F << std::endl;
+      for (int i = 0; i < (int)CommonPairs.size(); i++)
+      {
+        auto &ComPair = CommonPairs[i];
+
+        std::string Key;
+        for (int i = 0; i < Prec + 2; i++)
+          Key += ' ';
+        Key += "\"" + ComPair.first + "\"" + ": ";
+        F.write(Key.c_str(), Key.length());
+
+        std::string Value = ComPair.second;
+        char *c;
+        std::string ResValue;
+
+        strtod(Value.c_str(), &c);
+        if (*c == 0 && Value != "")
+          F.write(Value.c_str(), Value.length());
+        else
+        {
+          ResValue = "\"" + Value + "\"";
+          F.write(ResValue.c_str(), ResValue.length());
+        }
+        if (CurInd++ != AllObjectSize - 1)
+          F.write(",", 1);
+        F << std::endl;
+      }
+
+      for (int i = 0; i < (int)ObjectPairs.size(); i++)
+      {
+        auto &ObjPair = ObjectPairs[i];
+
+        std::string Key;
+        for (int i = 0; i < Prec + 2; i++)
+          Key += ' ';
+        Key += "\"" + ObjPair.first + "\"" + ": ";
+        F.write(Key.c_str(), Key.length());
+
+        F << std::endl;
+        ObjPair.second.Save(F, Prec + 2);
+
+        if (CurInd++ != AllObjectSize - 1)
+          F.write(",", 1);
+        F << std::endl;
+      }
+
+      for (int i = 0; i < (int)ArrayPairs.size(); i++)
+      {
+        auto &ArrPair = ArrayPairs[i];
+
+        std::string Key;
+        for (int i = 0; i < Prec + 2; i++)
+          Key += ' ';
+        Key += "\"" + ArrPair.first + "\"" + ": ";
+        F.write(Key.c_str(), Key.length());
+
+        F << std::endl;
+        ArrPair.second.Save(F, Prec + 2);
+
+        if (CurInd++ != AllObjectSize - 1)
+          F.write(",", 1);
+        F << std::endl;
+      }
+
+      for (int i = 0; i < Prec; i++)
+        F.write(" ", 1);
+      F.write("}", 1);
+    }
+
+    std::map<std::string, std::string> GetCommonPairs( void ) const
+    {
+      std::map<std::string, std::string> Res;
+
+      Res.insert(CommonPairs.begin(), CommonPairs.end());
+
+      return Res;
+    }
+
+    std::map<std::string, object> GetObjectPairs( void ) const
+    {
+      std::map<std::string, object> Res;
+
+      Res.insert(ObjectPairs.begin(), ObjectPairs.end());
+
+      return Res;
+    }
+
+    std::map<std::string, json_array> GetArrayPairs( void ) const
+    {
+      std::map<std::string, json_array> Res;
+
+      Res.insert(ArrayPairs.begin(), ArrayPairs.end());
+
+      return Res;
+    }
+  };
+
+  struct json_array
+  {
+    std::vector<object> Objects;
+    std::vector<std::string> Common;
+    std::vector<json_array> Arrays;
+
+    void Save( std::ofstream &F, int Prec = 0 )
+    {
+      int AllSize = Objects.size() + Common.size() + Arrays.size();
+      int CurInd = 0;
+
+      for (int i = 0; i < Prec; i++)
+        F.write(" ", 1);
+      F.write("[", 1);
+      F << std::endl;
+      for (int i = 0; i < (int)Common.size(); i++)
+      {
+        auto &ComEl = Common[i];
+
+        std::string Value;
+
+        for (int i = 0; i < Prec + 2; i++)
+          Value += ' ';
+        Value += ComEl;
+        char *c;
+        std::string ResValue;
+
+        strtod(Value.c_str(), &c);
+        if (*c == 0)
+          F.write(Value.c_str(), Value.length());
+        else
+        {
+          Value = Value.substr(Prec + 2);
+          for (int i = 0; i < Prec + 2; i++)
+            ResValue += ' ';
+          ResValue += "\"" + Value + "\"";
+          F.write(ResValue.c_str(), ResValue.length());
+        }
+        if (CurInd++ != AllSize - 1)
+          F.write(",", 1);
+        F << std::endl;
+      }
+
+      for (int i = 0; i < (int)Objects.size(); i++)
+      {
+        auto &Obj = Objects[i];
+
+        Obj.Save(F, Prec + 2);
+
+        if (CurInd++ != AllSize - 1)
+          F.write(",", 1);
+        F << std::endl;
+      }
+
+      for (int i = 0; i < (int)Arrays.size(); i++)
+      {
+        auto &Arr = Arrays[i];
+
+        Arr.Save(F, Prec + 2);
+
+        if (CurInd++ != AllSize - 1)
+          F.write(",", 1);
+        F << std::endl;
+      }
+
+      for (int i = 0; i < Prec; i++)
+        F.write(" ", 1);
+      F.write("]", 1);
+    }
+
+    void Parse( std::ifstream &F )
+    {
+      char ch;
+
+      while (true)
+      {
+        std::string NewArg;
+        object NewObj;
+        json_array NewArr;
+
+        SkipSpaces(F, ch);
+
+        if (ch == ']')
+          break;
+
+        switch (ch)
+        {
+        case '"':
+          ReadWhileNot(F, ch, '"', if (ch != '"') NewArg += ch);
+          Common.push_back(NewArg);
+          break;
+        case '{':
+          NewObj.Parse(F, true);
+          Objects.push_back(NewObj);
+          break;
+        case '[':
+          NewArr.Parse(F);
+          Arrays.push_back(NewArr);
+          break;
+        case ',':
+          continue;
+        default:
+          NewArg += ch;
+          do
+          {
+            F.read(&ch, 1);
+            if (ch != ']' && ch != ',' && !isspace((unsigned char)ch))
+              NewArg += ch;
+          } while (ch != ',' && ch != ']' && !isspace((unsigned char)ch));
+          Common.push_back(NewArg);
+          if (ch == ']')
+            return;
+          break;
+        }
+      }
+    }
+  };
+
+  object MainObject;
+
+  void Parse( const std::string &FileName )
+  {
+    std::ifstream F(FileName);
+
+    MainObject.Parse(F);
+  }
+
+  void Save( const std::string &FileName )
+  {
+    std::ofstream F(FileName);
+
+    MainObject.Save(F);
+  }
+
+  std::map<std::string, std::string> GetCommonPairs( void )
+  {
+    return MainObject.GetCommonPairs();
+  }
+
+  std::map<std::string, object> GetObjectPairs( void )
+  {
+    return MainObject.GetObjectPairs();
+  }
+
+  std::map<std::string, json_array> GetArrayPairs( void )
+  {
+    return MainObject.GetArrayPairs();
+  }
+};
+
+#pragma endregion
