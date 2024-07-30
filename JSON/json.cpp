@@ -22,7 +22,6 @@ void JsonArray::parse( std::istream &istr )
 
     auto checkZpt = [&]( void )
     {
-      //if (ch != ',' && isspace((unsigned char)ch))
       SkipSpaces(istr, ch);
       if (ch != ',' && ch != ']')
         throw "Invalid JSON array!";
@@ -83,26 +82,32 @@ void JsonArray::parse( std::istream &istr )
   }
 }
 
-std::string JsonArray::stringify( void ) const
+void JsonArray::save( std::ostream &ostr, int prec ) const
 {
-  return "";
 }
 
-template<typename T>
-bool JsonArray::at( const size_t index, T &data )
+void JsonArray::saveRaw( std::ostream &ostr ) const
 {
-  if (index >= arr.size())
-    return false;
+  ostr.write("[", 1);
 
-  try
+  for (size_t i = 0; i < arr.size(); i++)
   {
-    data = std::get<T>(arr[index]);
-    return true;
+    std::string val = std::to_string(arr[i]);
+
+    ostr.write(val.c_str(), val.length());
+    if (i != arr.size() - 1)
+      ostr.write(",", 1);
   }
-  catch (...)
-  {
-    return false;
-  }
+
+  ostr.write("]", 1);
+}
+
+std::string JsonArray::stringify( void ) const
+{
+  std::ostringstream ostr;
+
+  saveRaw(ostr);
+  return ostr.str();
 }
 
 void Json::parse( std::istream &istr, bool isRec )
@@ -110,12 +115,16 @@ void Json::parse( std::istream &istr, bool isRec )
   char ch;
   std::string key;
 
+  if (!istr)
+    throw "Unexpected end of data!";
+
   istr.read(&ch, 1);
   if (ch == '}')
     return;
   if (!isRec)
     if (ch != '{')
       throw "Invalid JSON!";
+
   while (true)
   {
     key = "";
@@ -192,34 +201,45 @@ void Json::parse( std::istream &istr, bool isRec )
 void Json::parse( const std::string &str )
 {
   std::istringstream istr(str);
-  std::fstream f(str);
 
-  parse(f);
+  parse(istr);
+}
+
+void Json::parseFile( const std::string &filename )
+{
+  std::ifstream file(filename);
+
+  parse(file);
+}
+
+void Json::save( std::ostream &ostr, int prec ) const
+{
+}
+
+void Json::saveRaw( std::ostream &ostr ) const
+{
+  ostr.write("{", 1);
+
+  size_t count = 0;
+  for (const auto &kv : obj)
+  {
+    std::string key = "\"" + kv.first + "\":";
+    std::string val = std::to_string(kv.second);
+
+    ostr.write(key.c_str(), key.length());
+    ostr.write(val.c_str(), val.length());
+
+    if (count++ != obj.size() - 1)
+      ostr.write(",", 1);
+  }
+
+  ostr.write("}", 1);
 }
 
 std::string Json::stringify( void ) const
 {
-  return "";
-}
+  std::ostringstream ostr;
 
-FieldType & Json::operator[]( const std::string &key )
-{
-  return obj[key];
-}
-
-template<typename T>
-bool Json::at( const std::string &key, T &data )
-{
-  if (obj.find(key) == obj.end())
-    return false;
-
-  try
-  {
-    data = std::get<T>(obj[key]);
-    return true;
-  }
-  catch (...)
-  {
-    return false;
-  }
+  saveRaw(ostr);
+  return ostr.str();
 }

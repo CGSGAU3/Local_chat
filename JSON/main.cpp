@@ -1,15 +1,19 @@
 #include <iostream>
+#include <fstream>
 
 #include "json.h"
 
 int main( void )
 {
-  FieldType ft;
   Json j;
 
-  j.parse("a.json");
+  j.parseFile("a.json");
 
-  ft = nullptr;
-  //std::cout << "Done!" << std::endl;
-  
+  bool a = (bool)j["bruh"];
+
+  std::ofstream f("out.json");
+  std::string val = j.stringify();
+
+  f.write(val.c_str(), val.length());
+  std::cout << "Done!" << std::endl;
 }
