@@ -1,9 +1,8 @@
 #pragma once
 
-#undef UNICODE
 #pragma comment(lib, "ws2_32.lib")
 #include <winsock2.h>
-#include "Win.h"
+#include "win.h"
 
 class Client : public Win
 {
@@ -26,6 +25,10 @@ private:
 
 public:
   Client( const std::string &name ) : Win(name)
+  {
+  }
+
+  ~Client( void )
   {
   }
 };

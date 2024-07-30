@@ -7,7 +7,6 @@
 #ifndef __win_h_
 #define __win_h_
 
-#undef UNICODE
 #include <windows.h>
 
 #include <string>

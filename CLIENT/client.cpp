@@ -54,7 +54,7 @@ void Client::init( void )
   addr.sin_addr.s_addr = inet_addr("26.11.186.108");
   addr.sin_port = htons(8080);
   addr.sin_family = AF_INET;
-
+  
   connection = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (connect(connection, (SOCKADDR*)&addr, sizeof(addr)) != 0)
   {
@@ -77,12 +77,12 @@ void Client::init( void )
 
   hTextBox = CreateWindow("edit", "", WS_BORDER | ES_MULTILINE | WS_CHILD | WS_VISIBLE | WS_VSCROLL,
                           w / 5, h - h / 10, w * 3 / 5, h / 10, hWnd, nullptr, hInstance, 0);
+
   SetWindowSubclass(hTextBox, (SUBCLASSPROC)editProc, 0, 0);
-  int a = GetLastError();
   SendMessage(hTextBox, WM_USER, 0, (LPARAM)this);
   SendMessage(hTextBox, EM_SETLIMITTEXT, 2048, 0);
 
-  HFONT hFont = CreateFont(h / 25, 0, GM_COMPATIBLE, GM_COMPATIBLE,
+  HFONT hFont = CreateFont(h / 26, 0, GM_COMPATIBLE, GM_COMPATIBLE,
                            FW_SEMIBOLD, false, false, false, RUSSIAN_CHARSET, OUT_CHARACTER_PRECIS,
                            CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_SWISS | DEFAULT_PITCH, "Consolas");
 
@@ -122,7 +122,7 @@ void Client::resize( void )
   HFONT hFont = (HFONT)SendMessage(hTextBox, WM_GETFONT, 0, 0);
 
   DeleteObject(hFont);
-  hFont = CreateFont(h / 25, 0, GM_COMPATIBLE, GM_COMPATIBLE,
+  hFont = CreateFont(h / 26, 0, GM_COMPATIBLE, GM_COMPATIBLE,
                            FW_SEMIBOLD, false, false, false, DEFAULT_CHARSET, OUT_CHARACTER_PRECIS,
                            CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY, FF_SWISS | DEFAULT_PITCH, "Consolas");
 

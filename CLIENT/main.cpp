@@ -1,10 +1,4 @@
-#undef UNICODE
-
-#define TEST 0
-
 #include "client.h"
-
-#include <string>
 
 #pragma warning(disable: 4996)
 
