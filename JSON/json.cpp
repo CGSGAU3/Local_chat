@@ -2,7 +2,7 @@
 
 #include "json.h"
 
-void JsonArray::parse( std::istream &istr )
+void Json::Array::parse( std::istream &istr )
 {
   char ch = 0;
 
@@ -10,7 +10,7 @@ void JsonArray::parse( std::istream &istr )
   {
     std::string newArg;
     Json newObj;
-    JsonArray newArr;
+    Array newArr;
 
     if (ch == ']')
       break;
@@ -51,9 +51,9 @@ void JsonArray::parse( std::istream &istr )
       do
       {
         istr.read(&ch, 1);
-        if (ch != ']' && ch != ',')
+        if (ch != ']' && ch != ',' && !isspace((unsigned char)ch))
           newArg += ch;
-      } while (istr && ch != ',' && ch != ']');
+      } while (istr && ch != ',' && ch != ']' && !isspace((unsigned char)ch));
 
       if (!istr)
         throw "Invalid JSON array!";
@@ -82,17 +82,42 @@ void JsonArray::parse( std::istream &istr )
   }
 }
 
-void JsonArray::save( std::ostream &ostr, int prec ) const
+void Json::Array::save( std::ostream &ostr, int prec ) const
 {
+  ostr.write("[\r\n", 3);
+
+  for (size_t i = 0; i < arr.size(); i++)
+  {
+    for (int i = 0; i < prec + 4; i++)
+      ostr.write(" ", 1);
+    if (arr[i].index() == 4)
+      std::get<Json>(arr[i]).save(ostr, prec + 4);
+    else if (arr[i].index() == 5)
+      std::get<Array>(arr[i]).save(ostr, prec + 4);
+    else
+    {
+      std::string val = Json::to_string(arr[i]);
+
+      ostr.write(val.c_str(), val.length());
+    }
+
+    if (i != arr.size() - 1)
+      ostr.write(",", 1);
+    ostr.write("\r\n", 2);
+  }
+
+  for (int i = 0; i < prec; i++)
+    ostr.write(" ", 1);
+  ostr.write("]", 1);
 }
 
-void JsonArray::saveRaw( std::ostream &ostr ) const
+void Json::Array::saveRaw( std::ostream &ostr ) const
 {
   ostr.write("[", 1);
 
   for (size_t i = 0; i < arr.size(); i++)
   {
-    std::string val = std::to_string(arr[i]);
+    std::string val = Json::to_string(arr[i]);
 
     ostr.write(val.c_str(), val.length());
     if (i != arr.size() - 1)
@@ -102,7 +127,7 @@ void JsonArray::saveRaw( std::ostream &ostr ) const
   ostr.write("]", 1);
 }
 
-std::string JsonArray::stringify( void ) const
+std::string Json::Array::stringify( void ) const
 {
   std::ostringstream ostr;
 
@@ -140,7 +165,7 @@ void Json::parse( std::istream &istr, bool isRec )
 
       std::string value;
       Json recObj;
-      JsonArray arr;
+      Array arr;
 
       switch (ch)
       {
@@ -177,18 +202,37 @@ void Json::parse( std::istream &istr, bool isRec )
         else 
           throw "Invalid JSON!";
       default:
-        // TODO: same shit as array
         value += ch;
         do
         {
           istr.read(&ch, 1);
           if (ch != '}' && ch != ',' && !isspace((unsigned char)ch))
             value += ch;
-        } while (ch != ',' && ch != '}' && !isspace((unsigned char)ch));
-        obj.insert({key, value});
-        if (ch == '}')
+        } while (istr && ch != ',' && ch != '}' && !isspace((unsigned char)ch));
+
+        if (!istr)
+          throw "Invalid JSON!";
+
+        char *end;
+        double numVal = strtod(value.c_str(), &end);
+
+        if (*end == 0)
+          obj.insert({key, numVal});
+        else
+        {
+          if (value == "null")
+            obj.insert({key, nullptr});
+          else if (value == "true")
+            obj.insert({key, true});
+          else if (value == "false")
+            obj.insert({key, false});
+          else
+            throw "Invalid JSON array!";
+        }
+
+        if (ch == ']')
           return;
-        continue;
+        break;
       }
     }
     else if (ch == '}')
@@ -214,6 +258,44 @@ void Json::parseFile( const std::string &filename )
 
 void Json::save( std::ostream &ostr, int prec ) const
 {
+  ostr.write("{\r\n", 3);
+
+  size_t count = 0;
+  for (const auto &kv : obj)
+  {
+    std::string key = "";
+
+    for (int i = 0; i < prec + 4; i++)
+      key += ' ';
+    key += "\"" + kv.first + "\": ";
+    ostr.write(key.c_str(), key.length());
+
+    if (kv.second.index() == 4)
+      std::get<Json>(kv.second).save(ostr, prec + 4);
+    else if (kv.second.index() == 5)
+      std::get<Array>(kv.second).save(ostr, prec + 4);
+    else
+    {
+      std::string val = to_string(kv.second);
+
+      ostr.write(val.c_str(), val.length());
+    }
+
+    if (count++ != obj.size() - 1)
+      ostr.write(",", 1);
+    ostr.write("\r\n", 2);
+  }
+
+  for (int i = 0; i < prec; i++)
+    ostr.write(" ", 1);
+  ostr.write("}", 1);
+}
+
+void Json::saveToFile( const std::string &filename )
+{
+  std::ofstream file(filename);
+
+  save(file);
 }
 
 void Json::saveRaw( std::ostream &ostr ) const
@@ -224,7 +306,7 @@ void Json::saveRaw( std::ostream &ostr ) const
   for (const auto &kv : obj)
   {
     std::string key = "\"" + kv.first + "\":";
-    std::string val = std::to_string(kv.second);
+    std::string val = to_string(kv.second);
 
     ostr.write(key.c_str(), key.length());
     ostr.write(val.c_str(), val.length());

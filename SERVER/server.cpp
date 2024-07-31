@@ -9,7 +9,6 @@ Server::status Server::start( void )
 {
   system("chcp 1251 > nul");
 
-  //WSAStartup
   WORD DLLVersion = MAKEWORD(2, 2);
   if (WSAStartup(DLLVersion, &wsaData) != 0)
   {
@@ -17,8 +16,7 @@ Server::status Server::start( void )
     return status::errSocketInit;
   }
 
-  SOCKADDR_IN addr;
-  int sizeofaddr = sizeof(addr);
+  SOCKADDR_IN addr{};
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(port);
   addr.sin_family = AF_INET;
@@ -42,7 +40,7 @@ Server::status Server::start( void )
 void Server::listenConnections( void )
 {
   SOCKET newConnection;
-  SOCKADDR_IN addr;
+  SOCKADDR_IN addr{};
   int sizeofaddr = sizeof(addr);
 
   while (state == status::open)
@@ -134,13 +132,13 @@ void Server::handleMessage( int index )
       SOCKET temp = users[index].conn;;
       users[index] = userNames[addon];
       users[index].conn = temp;
-      sendMessage(index, "Введите пароль: ");
+      sendMessage(index, "\r\nВведите пароль: ");
       users[index].state = User::status::auth_password;
     }
     else
     {
       userNames[addon] = users[index];
-      sendMessage(index, "Регистрация нового пользователя!\r\nВведите пароль: ");
+      sendMessage(index, "\r\nПридумайте пароль: ");
       users[index].state = User::status::registered_password;
     }
     break;
@@ -148,28 +146,28 @@ void Server::handleMessage( int index )
     addon = (char *)users[index].login;
     if (strcmp(SHA256(strMsg).c_str(), userNames[addon].hash) == 0)
     {
-      sendMessage(index, "Подключено!\r\n");
+      sendMessage(index, "\r\nПодключено!\r\n");
       users[index].state = User::status::connected;
       sprintf(msg, "           %s зашел на ацкий сервер\r\n", users[index].name);
       sendAllUsers(msg);
     }
     else
     {
-      sendMessage(index, "Неверный пароль!\r\n");
+      sendMessage(index, "\r\nНеверный пароль!\r\n");
     }
     break;
   case User::status::registered_password:
     strncpy((char *)users[index].hash, SHA256(strMsg).c_str(), 64);
     users[index].hash[64] = 0;
     users[index].state = User::status::registered_name;
-    sendMessage(index, "Введите имя (до 32 символов): ");
+    sendMessage(index, "\r\nВведите имя (до 32 символов): ");
     break;
   case User::status::registered_name:
     strncpy((char *)users[index].name, strMsg.c_str(), 32);
     users[index].name[32] = 0;
     addon = (char *)users[index].login;
     userNames[addon] = users[index];
-    sendMessage(index, "Зарегистрировано!\r\n");
+    sendMessage(index, "\r\nЗарегистрировано!\r\n");
     users[index].state = User::status::connected;
     sprintf(msg, "           %s зашел на ацкий сервер\r\n", users[index].name);
     sendAllUsers(msg);

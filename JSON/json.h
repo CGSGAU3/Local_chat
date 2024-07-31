@@ -20,66 +20,11 @@
   }                                       \
   while (File && x != ch)
 
-class Json;
-class JsonArray;
-using FieldType = std::variant<bool, double, std::string, std::nullptr_t, Json, JsonArray>;
-
-namespace std
-{
-  inline string to_string( const ::FieldType &ft );
-}
-
-class JsonArray
-{
-  friend class Json;
-  friend std::string std::to_string( const FieldType &ft );
-
-private:
-  std::vector<FieldType> arr;
-
-  void save( std::ostream &istr, int prec = 0 ) const;
-  void saveRaw( std::ostream &istr ) const;
-
-  void parse( std::istream &istr );
-  std::string stringify( void ) const;
-
-public:
-
-  JsonArray( void ) = default;
-
-  JsonArray( const JsonArray & ) = default;
-  JsonArray & operator =( const JsonArray & ) = default;
-
-  JsonArray( JsonArray && ) = default;
-  JsonArray & operator =( JsonArray && ) = default;
-
-  ~JsonArray( void ) = default;
-
-  template<typename T>
-  bool at( const size_t index, T &data )
-  {
-    if (index >= arr.size())
-      return false;
-
-    try
-    {
-      if constexpr (std::is_arithmetic_v<T>)
-        data = (T)std::get<double>(arr[index]);
-      else
-        data = std::get<T>(arr[index]);
-
-      return true;
-    }
-    catch (...)
-    {
-      return false;
-    }
-  }
-};
-
 class Json
 {
-  friend class JsonArray;
+public:
+  class Array;
+  using FieldType = std::variant<bool, double, std::string, std::nullptr_t, Json, Json::Array>;
 
 private:
   std::unordered_map<std::string, FieldType> obj;
@@ -89,6 +34,7 @@ private:
   void saveRaw( std::ostream &ostr ) const;
 
   class ARef;
+  class Array;
 
   class Ref
   {
@@ -134,10 +80,10 @@ private:
       throw std::bad_cast();
     }
 
-    operator JsonArray( void ) const
+    operator Array( void ) const
     {
       if (val.index() == 5)
-        return std::get<JsonArray>(val);
+        return std::get<Array>(val);
       throw std::bad_cast();
     }
 
@@ -153,6 +99,11 @@ private:
         numAny = (double)any;
         test = numAny;
         ptr->obj[key] = numAny;
+      }
+      else if constexpr (std::is_convertible_v<T, std::string>)
+      {
+        test = std::string(any);
+        ptr->obj[key] = std::string(any);
       }
       else
       {
@@ -172,7 +123,7 @@ private:
     ARef operator []( const size_t idx )
     {
       assert(val.index() == 5);
-      return ARef(std::get<JsonArray>(val), std::get<JsonArray>(val).arr[idx], idx);
+      return ARef(std::get<Array>(val), std::get<Array>(val).arr[idx], idx);
     }
 
   };
@@ -180,13 +131,13 @@ private:
   class ARef
   {
   private:
-    JsonArray *ptr;
+    Array *ptr;
     FieldType &val;
     size_t index;
 
   public:
 
-    ARef( JsonArray &ja, FieldType &ft, const size_t idx ) : ptr(&ja), val(ft), index(idx)
+    ARef( Array &ja, FieldType &ft, const size_t idx ) : ptr(&ja), val(ft), index(idx)
     {
     }
 
@@ -197,6 +148,7 @@ private:
         return std::get<T>(val);
       if (std::is_arithmetic_v<T> && val.index() == 1)
         return (T)std::get<double>(val);
+      throw std::bad_cast();
     }
 
     operator std::string( void ) const
@@ -220,10 +172,10 @@ private:
       throw std::bad_cast();
     }
 
-    operator JsonArray( void ) const
+    operator Array( void ) const
     {
       if (val.index() == 5)
-        return std::get<JsonArray>(val);
+        return std::get<Array>(val);
       throw std::bad_cast();
     }
 
@@ -239,6 +191,11 @@ private:
         numAny = (double)any;
         test = numAny;
         ptr->arr[index] = numAny;
+      }
+      else if constexpr (std::is_convertible_v<T, std::string>)
+      {
+        test = std::string(any);
+        ptr->arr[index] = std::string(any);
       }
       else
       {
@@ -258,9 +215,97 @@ private:
     ARef operator []( const size_t idx )
     {
       assert(val.index() == 5);
-      return ARef(std::get<JsonArray>(val), std::get<JsonArray>(val).arr[idx], idx);
+      return ARef(std::get<Array>(val), std::get<Array>(val).arr[idx], idx);
     }
   };
+
+public:
+
+  class Array
+  {
+    friend class Ref;
+    friend class ARef;
+    friend class Json;
+
+  private:
+    std::vector<FieldType> arr;
+
+    void save( std::ostream &istr, int prec = 0 ) const;
+    void saveRaw( std::ostream &istr ) const;
+
+    void parse( std::istream &istr );
+    std::string stringify( void ) const;
+
+  public:
+
+    Array( void ) = default;
+
+    Array( const Array & ) = default;
+    Array & operator =( const Array & ) = default;
+
+    Array( Array && ) = default;
+    Array & operator =( Array && ) = default;
+
+    ~Array( void ) = default;
+
+    ARef operator []( const size_t index )
+    {
+      assert(index >= 0 && index < arr.size());
+      return ARef(*this, arr[index], index);
+    }
+
+    template<typename T>
+    bool at( const size_t index, T &data )
+    {
+      if (index >= arr.size())
+        return false;
+
+      try
+      {
+        if constexpr (std::is_arithmetic_v<T>)
+          data = (T)std::get<double>(arr[index]);
+        else
+          data = std::get<T>(arr[index]);
+
+        return true;
+      }
+      catch (...)
+      {
+        return false;
+      }
+    }
+  };
+
+private:
+
+  static inline std::string to_string( const FieldType &ft )
+  {
+    double num;
+
+    switch (ft.index())
+    {
+    case 0: // bool
+      if (std::get<bool>(ft) == true)
+        return "true";
+      else
+        return "false";
+    case 1: // double
+      num = std::get<double>(ft);
+      if (fabs(num - (long long)num) < 1e-5)
+        return std::to_string((long long)num);
+      return std::to_string(num);
+    case 2: // string
+      return "\"" + std::get<std::string>(ft) + "\"";
+    case 3: // null
+      return "null";
+    case 4: // Json
+      return std::get<Json>(ft).stringify();
+    case 5: // Array
+      return std::get<Array>(ft).stringify();
+    default:
+      throw std::exception("WTH! FieldType contain only 6 types!");
+    }
+  }
 
 public:
 
@@ -288,12 +333,13 @@ public:
   void parse( const std::string &str );
   void parseFile( const std::string &filename );
   std::string stringify( void ) const;
+  void saveToFile( const std::string &filename );
 
   template<typename T>
   bool at( const std::string &key, T &data )
   {
     if (obj.find(key) == obj.end())
-    return false;
+      return false;
 
     try
     {
@@ -309,30 +355,3 @@ public:
     }
   }
 };
-
-namespace std
-{
-  inline string to_string( const ::FieldType &ft )
-  {
-    switch (ft.index())
-    {
-    case 0: // bool
-      if (get<bool>(ft) == true)
-        return "true";
-      else
-        return "false";
-    case 1: // double
-      return to_string(get<double>(ft));
-    case 2: // string
-      return "\"" + get<std::string>(ft) + "\"";
-    case 3: // null
-      return "null";
-    case 4: // Json
-      return get<Json>(ft).stringify();
-    case 5: // JsonArray
-      return get<JsonArray>(ft).stringify();
-    default:
-      throw std::exception("WTH! FieldType contain only 6 types!");
-    }
-  }
-}

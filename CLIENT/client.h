@@ -1,8 +1,9 @@
 #pragma once
 
-#pragma comment(lib, "ws2_32.lib")
 #include <winsock2.h>
 #include "win.h"
+
+#pragma comment(lib, "ws2_32.lib")
 
 class Client : public Win
 {
@@ -16,6 +17,8 @@ private:
   static void messageHandler( Client *win );
   static LRESULT editProc( HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam );
   void sendToServer( void );
+  void connectToServer( void );
+  void createUIElements( void );
 
   void init( void ) override;
   void resize( void ) override;
@@ -25,10 +28,7 @@ private:
 
 public:
   Client( const std::string &name ) : Win(name)
-  {
-  }
+  {}
 
-  ~Client( void )
-  {
-  }
+  ~Client( void ) = default;
 };
