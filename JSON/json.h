@@ -117,13 +117,13 @@ private:
     Ref operator []( const std::string &kkey )
     {
       assert(val.index() == 4);
-      return Ref(std::get<Json>(val), std::get<Json>(val).obj[kkey], kkey);
+      return std::get<Json>(val)[kkey];
     }
 
     ARef operator []( const size_t idx )
     {
       assert(val.index() == 5);
-      return ARef(std::get<Array>(val), std::get<Array>(val).arr[idx], idx);
+      return std::get<Array>(val)[idx];
     }
 
   };
@@ -209,13 +209,13 @@ private:
     Ref operator []( const std::string &kkey )
     {
       assert(val.index() == 4);
-      return Json::Ref(std::get<Json>(val), std::get<Json>(val).obj[kkey], kkey);
+      return std::get<Json>(val)[kkey];
     }
 
     ARef operator []( const size_t idx )
     {
       assert(val.index() == 5);
-      return ARef(std::get<Array>(val), std::get<Array>(val).arr[idx], idx);
+      return std::get<Array>(val)[idx];
     }
   };
 
@@ -246,12 +246,35 @@ public:
     Array( Array && ) = default;
     Array & operator =( Array && ) = default;
 
+    Array( const size_t size );
+
     ~Array( void ) = default;
 
     ARef operator []( const size_t index )
     {
-      assert(index >= 0 && index < arr.size());
+      assert(index >= 0 && index <= arr.size());
+
+      if (index == arr.size())
+        add(nullptr);
       return ARef(*this, arr[index], index);
+    }
+
+    void resize( const size_t size )
+    {
+      arr.resize(size);
+    }
+
+    template<typename T>
+    void add( const T &data )
+    {
+      if constexpr (std::is_arithmetic_v<T>)
+        arr.push_back((double)data);
+      else
+      {
+        FieldType valid = data;
+
+        arr.push_back(valid);
+      }
     }
 
     template<typename T>
@@ -335,10 +358,23 @@ public:
   std::string stringify( void ) const;
   void saveToFile( const std::string &filename );
 
+  /******  MANAGEMENT  ******/
+
+  bool find( const std::string &key )
+  {
+    return obj.find(key) != obj.end();
+  }
+
+  void remove( const std::string &key )
+  {
+    if (find(key))
+      obj.erase(key);
+  }
+
   template<typename T>
   bool at( const std::string &key, T &data )
   {
-    if (obj.find(key) == obj.end())
+    if (!find(key))
       return false;
 
     try

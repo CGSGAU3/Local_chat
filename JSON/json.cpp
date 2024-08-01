@@ -2,6 +2,10 @@
 
 #include "json.h"
 
+Json::Array::Array( const size_t size ) : arr(size)
+{
+}
+
 void Json::Array::parse( std::istream &istr )
 {
   char ch = 0;

@@ -19,6 +19,7 @@ int main( void )
   arr[0]["published"] = 2024;
   arr[0]["genres"][0] = "C++";
   arr[0]["genres"][1] = "Programming";
+  arr[0]["genres"][2] = "Nice";
 
   j["library"]["books"] = arr;
 
