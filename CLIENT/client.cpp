@@ -1,7 +1,7 @@
 #include "client.h"
 
 #include <stdexcept>
-#include <CommCtrl.h>
+#include <commctrl.h>
 
 #pragma comment(lib, "comctl32")
 
@@ -49,9 +49,9 @@ void Client::init( void )
   {
     connectToServer();
     createUIElements();
-    CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)messageHandler, this, NULL, NULL);
+    msgThread = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)messageHandler, this, NULL, NULL);
   }
-  catch (const std::exception& e)
+  catch ( const std::exception &e )
   {
     OutputDebugString(e.what());
     exit(1);
@@ -74,13 +74,10 @@ void Client::connectToServer( void )
 
   connection = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (connection == INVALID_SOCKET)
-  {
     throw std::runtime_error("Socket creation failed");
-  }
+
   if (connect(connection, (SOCKADDR*)&addr, sizeof(addr)) != 0)
-  {
     throw std::runtime_error("Failed to connect to server");
-  }
 }
 
 void Client::createUIElements( void )
@@ -108,6 +105,21 @@ void Client::createUIElements( void )
   SendMessage(hTextBox, WM_SETFONT, (WPARAM)hFont, 0);
   SendMessage(hLabel, WM_SETFONT, (WPARAM)hFont, 0);
   SendMessage(hSend, WM_SETFONT, (WPARAM)hFont, 0);
+}
+
+void Client::keyboard( bool isUp, UINT key )
+{
+  if (key == VK_RETURN)
+    sendToServer();
+}
+
+void Client::command( HWND handle, WORD id, WORD cmd )
+{
+  if (handle == hSend)
+  {
+    if (cmd == BN_CLICKED)
+      sendToServer();
+  }
 }
 
 void Client::sendToServer( void )
@@ -176,9 +188,3 @@ void Client::paint( HDC hDC )
   GetClientRect(hWnd, &rect);
   FillRect(hDC, &rect, HBRUSH(COLOR_WINDOW + 1));
 }
-
-void Client::keyboard( bool isUp, UINT key )
-{}
-
-void Client::command( HWND handle, WORD id, WORD cmd )
-{}

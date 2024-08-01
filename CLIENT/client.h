@@ -12,6 +12,7 @@ private:
   HWND hLabel;
   HWND hSend;
   SOCKET connection;
+  HANDLE msgThread;
   bool isShift;
 
   static void messageHandler( Client *win );
@@ -27,8 +28,19 @@ private:
   void command( HWND handle, WORD id, WORD cmd ) override;
 
 public:
-  Client( const std::string &name ) : Win(name)
-  {}
+  Client( const std::string &name ) : Win(name), connection(INVALID_SOCKET), isShift(false),
+    hTextBox(nullptr), hSend(nullptr), hLabel(nullptr), msgThread(nullptr)
+  {
+  }
 
-  ~Client( void ) = default;
+  ~Client( void ) override
+  {
+    closesocket(connection);
+    WaitForSingleObject(msgThread, INFINITE);
+
+    HFONT hFont = (HFONT)SendMessage(hTextBox, WM_GETFONT, 0, 0);
+    DeleteObject(hFont);
+
+    WSACleanup();
+  }
 };

@@ -88,7 +88,7 @@ void Server::handleMessage( int index )
 {
   char msg[MSG_LENGTH];
 
-  memset(msg, 0, 4096);
+  memset(msg, 0, MSG_LENGTH);
   int flag = recv(users[index].conn, msg, sizeof(msg), 0);
 
   if (flag == -1 || flag == 0)

@@ -35,8 +35,5 @@
     <ClInclude Include="client.h">
       <Filter>Исходные файлы</Filter>
     </ClInclude>
-    <ClInclude Include="temp.h">
-      <Filter>Исходные файлы</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
