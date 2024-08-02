@@ -22,6 +22,53 @@
   }                                       \
   while (File && x != ch)
 
+#define GENERATE_OPTION_SET_BASE(optType, idx, objType)                \
+  if (obj[fi.name].index() == idx &&                                   \
+      fi.type == typeid(optType).name())                               \
+  {                                                                    \
+    setData(ptr, fi.offset, (optType)std::get<objType>(obj[fi.name])); \
+    continue;                                                          \
+  }
+
+#define GENERATE_OPTION_ARRAY_SET(optType)                                      \
+  if (obj[fi.name].index() == 5 &&                                              \
+      fi.type == typeid(std::vector<optType>).name())                           \
+  {                                                                             \
+    setData(ptr, fi.offset, std::get<Array>(obj[fi.name]).toVector<optType>()); \
+    continue;                                                                   \
+  }
+
+
+#define GENERATE_OPTION_SET(optTypeBase, idx, objType)          \
+  GENERATE_OPTION_SET_BASE(optTypeBase, idx, objType);          \
+  GENERATE_OPTION_SET_BASE(signed optTypeBase, idx, objType);   \
+  GENERATE_OPTION_SET_BASE(unsigned optTypeBase, idx, objType); \
+  GENERATE_OPTION_ARRAY_SET(optTypeBase);                       \
+  GENERATE_OPTION_ARRAY_SET(signed optTypeBase);                \
+  GENERATE_OPTION_ARRAY_SET(unsigned optTypeBase);
+
+#define GENERATE_OPTION_GET_BASE(optType, idx, objType)       \
+  if (fi.type == typeid(optType).name())                      \
+  {                                                           \
+    obj[fi.name] = (objType)getData<optType>(ptr, fi.offset); \
+    continue;                                                 \
+  }
+
+#define GENERATE_OPTION_ARRAY_GET(optType)                                           \
+  if (fi.type == typeid(std::vector<optType>).name())                                \
+  {                                                                                  \
+    obj[fi.name] = Array::fromVector(getData<std::vector<optType>>(ptr, fi.offset)); \
+    continue;                                                                        \
+  }
+
+#define GENERATE_OPTION_GET(optTypeBase, idx, objType)          \
+  GENERATE_OPTION_GET_BASE(optTypeBase, idx, objType);          \
+  GENERATE_OPTION_GET_BASE(signed optTypeBase, idx, objType);   \
+  GENERATE_OPTION_GET_BASE(unsigned optTypeBase, idx, objType); \
+  GENERATE_OPTION_ARRAY_GET(optTypeBase);                       \
+  GENERATE_OPTION_ARRAY_GET(signed optTypeBase);                \
+  GENERATE_OPTION_ARRAY_GET(unsigned optTypeBase);
+
 class Json
 {
 public:
@@ -199,6 +246,16 @@ public:
     void parse( std::istream &istr );
     std::string stringify( void ) const;
 
+    template<typename T>
+    static Array fromVector( const std::vector<T> &v )
+    {
+      Array res;
+
+      for (const auto &el : v)
+        res.add(el);
+      return res;
+    }
+
   public:
 
     Array( void ) = default;
@@ -244,6 +301,22 @@ public:
 
         arr.push_back(valid);
       }
+    }
+
+    template<typename T>
+    std::vector<T> toVector( void )
+    {
+      std::vector<T> res;
+
+      for (size_t i = 0; i < arr.size(); i++)
+      {
+        if constexpr (std::is_arithmetic_v<T>)
+          res.push_back((T)std::get<double>(arr[i]));
+        else
+          res.push_back(std::get<T>(arr[i]));
+      }
+
+      return res;
     }
 
     template<typename T>
@@ -307,6 +380,19 @@ public:
     parse(str);
   }
 
+  template<typename T>
+  Json( const T &any ) : obj()
+  {
+    fromObject(any);
+  }
+
+  template<typename T>
+  Json & operator =( const T &any )
+  {
+    fromObject(any);
+    return *this;
+  }
+
   Json( const Json & ) = default;
   Json & operator =( const Json & ) = default;
 
@@ -362,6 +448,97 @@ public:
     catch (...)
     {
       return false;
+    }
+  }
+
+private:
+
+  template<typename T>
+  static T & getData( char *ptr, int offset )
+  {
+    return *(T *)(ptr + offset);
+  }
+
+  template<typename T>
+  static void setData( char *ptr, int offset, const T &data )
+  {
+    *(T *)(ptr + offset) = data;
+  }
+
+public:
+
+  template<typename T>
+  void fromObject( const T &data )
+  {
+    TypeInfo ti = T::getType();
+    char *ptr = (char *)&data;
+
+    for (const auto &fi : ti.fields)
+    {
+      GENERATE_OPTION_GET_BASE(bool, 0, bool);
+      GENERATE_OPTION_GET(short, 1, double);
+      GENERATE_OPTION_GET(int, 1, double);
+      GENERATE_OPTION_GET(long, 1, double);
+      GENERATE_OPTION_GET(long long, 1, double);
+      GENERATE_OPTION_GET_BASE(float, 1, double);
+      GENERATE_OPTION_GET_BASE(double, 1, double);
+      GENERATE_OPTION_GET_BASE(long double, 1, double);
+      GENERATE_OPTION_ARRAY_GET(float);
+      GENERATE_OPTION_ARRAY_GET(double);
+      GENERATE_OPTION_ARRAY_GET(long double);
+      GENERATE_OPTION_GET_BASE(std::string, 2, std::string);
+
+      if (fi.type == "signed char" || fi.type == "unsigned char" || fi.type == "char")
+      {
+        std::string str = " ";
+
+        str[0] = getData<char>(ptr, fi.offset);
+        obj[fi.name] = str;
+        continue;
+      }
+
+      throw std::exception("Unknown type!");
+    }
+  }
+
+  template<typename T>
+  void toObject( T &data )
+  {
+    TypeInfo ti = T::getType();
+    char *ptr = (char *)&data;
+
+    for (const auto &fi : ti.fields)
+    {
+      if (obj.find(fi.name) == obj.end())
+        throw std::exception("Unknown field!");
+
+      GENERATE_OPTION_SET_BASE(bool, 0, bool);
+      GENERATE_OPTION_SET(char, 1, double);
+      GENERATE_OPTION_SET(short, 1, double);
+      GENERATE_OPTION_SET(int, 1, double);
+      GENERATE_OPTION_SET(long, 1, double);
+      GENERATE_OPTION_SET(long long, 1, double);
+      GENERATE_OPTION_SET_BASE(float, 1, double);
+      GENERATE_OPTION_SET_BASE(double, 1, double);
+      GENERATE_OPTION_SET_BASE(long double, 1, double);
+      GENERATE_OPTION_ARRAY_SET(float);
+      GENERATE_OPTION_ARRAY_SET(double);
+      GENERATE_OPTION_ARRAY_SET(long double);
+      GENERATE_OPTION_SET_BASE(std::string, 2, std::string);
+
+      if (obj[fi.name].index() == 2 && (fi.type == "signed char" || 
+          fi.type == "unsigned char" || fi.type == "char"))
+      {
+        const std::string &str = std::get<std::string>(obj[fi.name]);
+
+        if (str.length() == 1)
+          setData(ptr, fi.offset, str[0]);
+        else
+          throw std::exception("Attempt to equal string and single char!");
+        continue;
+      }
+
+      throw std::exception("Unknown type!");
     }
   }
 };

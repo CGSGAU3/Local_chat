@@ -21,7 +21,6 @@ public:
   std::string name;
   int offset;
   std::string type;
-  size_t typeHash;
 
   void setName( const char *fieldName )
   {
@@ -35,7 +34,6 @@ public:
   fi.setName(ARGNAME_AS_STRING(x));               \
   fi.offset = offsetof(_className, ARGNAME(x));   \
   fi.type = typeid(ARGTYPE(x)).name();            \
-  fi.typeHash = typeid(ARGTYPE(x)).hash_code();   \
   t.fields.push_back(fi);
 
 

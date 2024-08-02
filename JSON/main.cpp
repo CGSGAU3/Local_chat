@@ -5,23 +5,30 @@
 
 struct foo
 {
-  JSON_FIELDS(foo, (int) a, (double) b);
+  JSON_FIELDS(foo, (int) a, (double) b, (std::vector<int>) c);
 };
 
 
 int main( void )
 {
-  int a = 10;
+  Json test;
+
+  /*test["a"] = 30;
+  test["b"] = 47;
+  test["c"] = Json::Array(5);
+
+  for (int i = 0; i < 5; i++)
+    test["c"][i] = pow(2, i);*/
+  //test.toObject(x);
 
   foo x;
 
-  auto ti = x.getType();
-  auto ttt = typeid(float).hash_code();
+  x.a = 3047;
+  x.b = 102;
+  x.c = {30, 47, 102, 69, 96};
+  test = x;
 
-  char *sss = (char *)&x;
-  double *dbl = (double *)(sss + ti.fields[1].offset);
-
-  *dbl = 4;
+  test.saveToFile("test_serializer.json");
 
   Json j;
 
