@@ -1,5 +1,7 @@
 #pragma once
 
+// Thanks to https://github.com/tapika/TestCppReflect for code
+
 #define ARGTYPE(x) ARGTYPE_PASS2(ARGTYPE_PASS1 x,)
 #define ARGTYPE_PASS1(...) (__VA_ARGS__),
 #define ARGTYPE_PASS2(...) ARGTYPE_PASS3((__VA_ARGS__))
