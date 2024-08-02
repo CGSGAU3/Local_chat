@@ -7,6 +7,8 @@
 #include <variant>
 #include <cassert>
 
+#include "reflect.h"
+
 #define SkipSpaces(File, x) \
   do                        \
     File.read(&x, 1);       \
@@ -33,19 +35,16 @@ private:
   void save( std::ostream &ostr, int prec = 0 ) const;
   void saveRaw( std::ostream &ostr ) const;
 
-  class ARef;
   class Array;
 
   class Ref
   {
   private:
-    Json *ptr;
     FieldType &val;
-    const std::string &key;
 
   public:
 
-    Ref( Json &j, FieldType &ft, const std::string &k ) : ptr(&j), val(ft), key(k)
+    Ref( FieldType &ft ) : val(ft)
     {
     }
 
@@ -80,7 +79,21 @@ private:
       throw std::bad_cast();
     }
 
+    operator Json &( void )
+    {
+      if (val.index() == 4)
+        return std::get<Json>(val);
+      throw std::bad_cast();
+    }
+
     operator Array( void ) const
+    {
+      if (val.index() == 5)
+        return std::get<Array>(val);
+      throw std::bad_cast();
+    }
+
+    operator Array &( void )
     {
       if (val.index() == 5)
         return std::get<Array>(val);
@@ -90,25 +103,55 @@ private:
     template<typename T>
     Ref & operator =( const T &any )
     {
-      FieldType test;
       double numAny;
 
       // Validate types
       if constexpr (std::is_arithmetic_v<T>)
       {
         numAny = (double)any;
-        test = numAny;
-        ptr->obj[key] = numAny;
+        val = numAny;
+      }
+      else if constexpr (std::is_same_v<T, std::nullptr_t>)
+      {
+        val = nullptr;
       }
       else if constexpr (std::is_convertible_v<T, std::string>)
       {
-        test = std::string(any);
-        ptr->obj[key] = std::string(any);
+        val = std::string(any);
       }
       else
       {
-        test = any;
-        ptr->obj[key] = any;
+        val = any;
+      }
+
+      return *this;
+    }
+
+    Ref & operator =( const Ref &any )
+    {
+      switch (any.val.index())
+      {
+      case 0:
+        *this = std::get<bool>(any.val);
+        break;
+      case 1:
+        *this = std::get<double>(any.val);
+        break;
+      case 2:
+        *this = std::get<std::string>(any.val);
+        break;
+      case 3:
+        *this = std::get<std::nullptr_t>(any.val);
+        break;
+      case 4:
+        *this = std::get<Json>(any.val);
+        break;
+      case 5:
+        *this = std::get<Array>(any.val);
+        break;
+      default:
+        throw std::exception("U just added new type?");
+
       }
 
       return *this;
@@ -120,103 +163,24 @@ private:
       return std::get<Json>(val)[kkey];
     }
 
-    ARef operator []( const size_t idx )
+    Ref operator []( const size_t idx )
     {
       assert(val.index() == 5);
       return std::get<Array>(val)[idx];
     }
 
-  };
-
-  class ARef
-  {
-  private:
-    Array *ptr;
-    FieldType &val;
-    size_t index;
-
-  public:
-
-    ARef( Array &ja, FieldType &ft, const size_t idx ) : ptr(&ja), val(ft), index(idx)
-    {
-    }
-
-    template<typename T>
-    explicit operator T( void ) const
-    {
-      if (std::is_same_v<T, bool> && val.index() == 0)
-        return std::get<T>(val);
-      if (std::is_arithmetic_v<T> && val.index() == 1)
-        return (T)std::get<double>(val);
-      throw std::bad_cast();
-    }
-
-    operator std::string( void ) const
-    {
-      if (val.index() == 2)
-        return std::get<std::string>(val);
-      throw std::bad_cast();
-    }
-
-    operator nullptr_t( void ) const
-    {
-      if (val.index() == 3)
-        return std::get<nullptr_t>(val);
-      throw std::bad_cast();
-    }
-
-    operator Json( void ) const
-    {
-      if (val.index() == 4)
-        return std::get<Json>(val);
-      throw std::bad_cast();
-    }
-
-    operator Array( void ) const
-    {
-      if (val.index() == 5)
-        return std::get<Array>(val);
-      throw std::bad_cast();
-    }
-
-    template<typename T>
-    ARef & operator =( const T &any )
-    {
-      FieldType test;
-      double numAny;
-
-      // Validate types
-      if constexpr (std::is_arithmetic_v<T>)
-      {
-        numAny = (double)any;
-        test = numAny;
-        ptr->arr[index] = numAny;
-      }
-      else if constexpr (std::is_convertible_v<T, std::string>)
-      {
-        test = std::string(any);
-        ptr->arr[index] = std::string(any);
-      }
-      else
-      {
-        test = any;
-        ptr->arr[index] = any;
-      }
-
-      return *this;
-    }
-
-    Ref operator []( const std::string &kkey )
+    const Ref operator []( const std::string &kkey ) const
     {
       assert(val.index() == 4);
       return std::get<Json>(val)[kkey];
     }
 
-    ARef operator []( const size_t idx )
+    const Ref operator []( const size_t idx ) const
     {
       assert(val.index() == 5);
       return std::get<Array>(val)[idx];
     }
+
   };
 
 public:
@@ -224,7 +188,6 @@ public:
   class Array
   {
     friend class Ref;
-    friend class ARef;
     friend class Json;
 
   private:
@@ -250,13 +213,19 @@ public:
 
     ~Array( void ) = default;
 
-    ARef operator []( const size_t index )
+    Ref operator []( const size_t index )
     {
       assert(index >= 0 && index <= arr.size());
 
       if (index == arr.size())
         add(nullptr);
-      return ARef(*this, arr[index], index);
+      return Ref(arr[index]);
+    }
+
+    const Ref operator []( const size_t index ) const
+    {
+      assert(index >= 0 && index < arr.size());
+      return Ref(const_cast<FieldType &>(arr[index]));
     }
 
     void resize( const size_t size )
@@ -345,7 +314,12 @@ public:
   {
     if (obj.find(key) == obj.end())
       obj[key] = Json();
-    return Ref(*this, obj[key], key);
+    return Ref(obj[key]);
+  }
+
+  const Ref operator []( const std::string &key ) const
+  {
+    return Ref(const_cast<FieldType &>(obj.at(key)));
   }
 
   Json( Json && ) = default;

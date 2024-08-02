@@ -26,5 +26,11 @@
     <ClInclude Include="json.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="reflect.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="macro.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

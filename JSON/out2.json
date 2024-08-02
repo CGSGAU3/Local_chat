@@ -1,12 +1,12 @@
 {
-    "bruh": "lol",
     "library": {
         "name": "City Library",
         "books": [
             {
                 "genres": [
                     "C++",
-                    "Programming"
+                    "Programming",
+                    "Lifestyle"
                 ],
                 "published": 2024,
                 "title": "How to C++",
@@ -35,6 +35,8 @@
                 "membershipDate": "2019-05-22",
                 "isActive": false
             }
-        ]
-    }
+        ],
+        "addon": "C++"
+    },
+    "CGSG": "AU3"
 }
