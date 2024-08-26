@@ -9,18 +9,37 @@
 
 #include "reflect.h"
 
+/* Debug memory allocation support */
+#ifndef NDEBUG 
+# define _CRTDBG_MAP_ALLOC
+# include <crtdbg.h>
+# define SetDbgMemHooks() \
+  _CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF | \
+  _CRTDBG_ALLOC_MEM_DF | _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG))
+
+/* Memory leak class */
+static class __Dummy
+{
+public:
+  /* Class constructor */
+  __Dummy( )
+  {
+    SetDbgMemHooks();
+  } /* End of '__Dummy' constructor */
+} __ooppss;
+#endif /* _DEBUG */ 
+
+#ifdef _DEBUG 
+# ifdef _CRTDBG_MAP_ALLOC 
+#   define new new(_NORMAL_BLOCK, __FILE__, __LINE__) 
+# endif /* _CRTDBG_MAP_ALLOC */ 
+#endif /* _DEBUG */
+
 #define SkipSpaces(File, x) \
   do                        \
     File.read(&x, 1);       \
   while (File && isspace((unsigned char)x) || x == 0)
 
-#define ReadWhileNot(File, x, ch, Action) \
-  do                                      \
-  {                                       \
-    File.read(&x, 1);                     \
-    Action;                               \
-  }                                       \
-  while (File && x != ch)
 
 #define GENERATE_OPTION_SET_BASE(optType, idx, objType)                \
   if (obj[fi.name].index() == idx &&                                   \
@@ -37,7 +56,6 @@
     setData(ptr, fi.offset, std::get<Array>(obj[fi.name]).toVector<optType>()); \
     continue;                                                                   \
   }
-
 
 #define GENERATE_OPTION_SET(optTypeBase, idx, objType)          \
   GENERATE_OPTION_SET_BASE(optTypeBase, idx, objType);          \
@@ -449,6 +467,11 @@ public:
     {
       return false;
     }
+  }
+
+  void clear( void )
+  {
+    obj.clear();
   }
 
 private:

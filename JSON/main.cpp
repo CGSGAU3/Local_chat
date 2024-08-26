@@ -32,6 +32,8 @@ int main( void )
 
   Json j;
 
+  j.parseFile("ttt.json");
+
   j.parseFile("a.json");
   j["CGSG"] = "AU3";
 

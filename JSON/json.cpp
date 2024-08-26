@@ -31,10 +31,34 @@ void Json::Array::parse( std::istream &istr )
         throw "Invalid JSON array!";
     };
 
+    auto readString = [&]( std::string &str )
+    {
+      char prev = ch;
+    
+      do
+      {
+        istr.read(&ch, 1);
+    
+        if (ch != '"' || (ch == '"' && prev == '\\'))
+        {
+          str += ch;
+          prev = ch;
+        }
+        else
+        {
+          break;
+        }
+    
+        if (!istr)
+          break;
+      }
+      while (true);
+    };
+
     switch (ch)
     {
     case '"':
-      ReadWhileNot(istr, ch, '"', if (ch != '"') newArg += ch);
+      readString(newArg);
       arr.push_back(newArg);
       checkZpt();
       break;
@@ -154,6 +178,30 @@ void Json::parse( std::istream &istr, bool isRec )
     if (ch != '{')
       throw "Invalid JSON!";
 
+  auto readString = [&]( std::string &str )
+  {
+    char prev = ch;
+
+    do
+    {
+      istr.read(&ch, 1);
+
+      if (ch != '"' || (ch == '"' && prev == '\\'))
+      {
+        str += ch;
+        prev = ch;
+      }
+      else
+      {
+        break;
+      }
+
+      if (!istr)
+        break;
+    }
+    while (true);
+  };
+
   while (true)
   {
     key = "";
@@ -161,7 +209,7 @@ void Json::parse( std::istream &istr, bool isRec )
       SkipSpaces(istr, ch);
     if (ch == '"')
     {
-      ReadWhileNot(istr, ch, '"', if (ch != '"') key += ch);
+      readString(key);
       SkipSpaces(istr, ch);
       if (ch != ':')
         throw "Invalid JSON!";
@@ -174,7 +222,7 @@ void Json::parse( std::istream &istr, bool isRec )
       switch (ch)
       {
       case '"':
-        ReadWhileNot(istr, ch, '"', if (ch != '"') value += ch);
+        readString(value);
         obj.insert({key, value});
         SkipSpaces(istr, ch);
         if (ch == ',')
@@ -250,6 +298,7 @@ void Json::parse( const std::string &str )
 {
   std::istringstream istr(str);
 
+  clear();
   parse(istr);
 }
 
@@ -257,6 +306,7 @@ void Json::parseFile( const std::string &filename )
 {
   std::ifstream file(filename);
 
+  clear();
   parse(file);
 }
 
